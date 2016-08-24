@@ -1,0 +1,52 @@
+import threading
+import time, json, datetime
+import fading
+from dateutil import parser
+from ledstrip_bootstrap import *
+
+seconds_per_minute  = 60
+seconds_per_day  = seconds_per_minute*60*24
+minutes_per_day  = seconds_per_day / 60 
+
+class Alarm(threading.Thread):
+    def __init__(self, timeOfDay, daysOfWeek, wakeUpMinutes=30, graceMinutes=10, delay=10):
+        super(Alarm, self).__init__()
+        
+        self.timeOfDay = timeOfDay
+        self.daysOfWeek = daysOfWeek
+        self.delay = delay
+        self.wakeUpMinutes = float(wakeUpMinutes)
+        self.graceMinutes = graceMinutes
+        self.setDaemon(True)
+        self.led = led
+        self.lock = threading.Lock()
+        self.__isFinished = False
+
+    def __str__(self):
+        return str(self.dump())
+    
+    def  getLight(self, deltaMinutes):
+        """
+        deltaMinutes: number of minutes before alarm time
+        generate r,g,b values 
+        """
+        if minutes_per_day - deltaMinutes < self.graceMinutes: return Color(255.0, 255.0, 255.0 , 1.0)
+        if deltaMinutes > self.wakeUpMinutes: return None 
+        level = 1.0 -   deltaMinutes / self.wakeUpMinutes
+        red, green, blue = 255.0, 0.0, 255.0 * level 
+        print(red,green, blue, self.wakeUpMinutes, deltaMinutes, level)
+        return  Color(red,green,blue, level)
+        
+    def run(self):
+        while True:
+	    execfile(fading.py)
+            time.sleep(self.delay)
+            with self.lock: 
+                if self.__isFinished: break
+            self.tick()
+
+    def tick(self):
+        now = datetime.datetime.now()
+        if not now.weekday() in self.daysOfWeek: return 
+        delta =  self.timeOfDay - now 
+        deltaMinutes = (delta 
